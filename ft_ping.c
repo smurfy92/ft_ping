@@ -37,52 +37,52 @@ unsigned short checksum(void *b, int len)
 	return result;
 }
 
-void		listener(void)
-{
-	int sock;
-	char buffer[1024];
-	const int val=255;
-	struct cmsghdr *cmsg;
-	int ret;
-	struct sock_extended_err *sock_err;
+// void		listener(void)
+// {
+// 	int sock;
+// 	char buffer[1024];
+// 	const int val=255;
+// 	struct cmsghdr *cmsg;
+// 	int ret;
+// 	struct sock_extended_err *sock_err;
 
-	sock = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
-	if (sock == -1)
-		perror("socket");
-	if (setsockopt(sock, IPPROTO_IP, IP_TTL, &val, sizeof(val)) != 0)
-		perror("Set TTL option");
-	while (42)
-	{
-		struct sockaddr_storage src_addr;
-		struct msghdr message;
-		struct iovec iov[1];
-		iov[0].iov_base=buffer;
-		iov[0].iov_len=sizeof(buffer);
-		message.msg_name=&src_addr;
-		message.msg_namelen=sizeof(src_addr);
-		message.msg_iov=iov;
-		message.msg_iovlen=1;
-		message.msg_control=0;
-		message.msg_controllen=0;
-		ret = recvmsg(sock, &message, MSG_ERRQUEUE);
-	    if (ret < 0)
-	        continue;
-	    /* Control messages are always accessed via some macros 
-	     * http://www.kernel.org/doc/man-pages/online/pages/man3/cmsg.3.html
-	     */
-	    for (cmsg = CMSG_FIRSTHDR(&message);cmsg; cmsg = CMSG_NXTHDR(&message, cmsg)) 
-	    {
-            /* We received an error */
-            if (cmsg->cmsg_type == IP_RECVERR)
-            {
-                printf("We got IP_RECVERR message\n");
-                int *ttlptr = (int *) CMSG_DATA(cmsg);
-               	int received_ttl = *ttlptr;
-               	printf("ttl -> %d\n", received_ttl);
-            }
-	    }
-	}
-}
+// 	sock = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+// 	if (sock == -1)
+// 		perror("socket");
+// 	if (setsockopt(sock, IPPROTO_IP, IP_TTL, &val, sizeof(val)) != 0)
+// 		perror("Set TTL option");
+// 	while (42)
+// 	{
+// 		struct sockaddr_storage src_addr;
+// 		struct msghdr message;
+// 		struct iovec iov[1];
+// 		iov[0].iov_base=buffer;
+// 		iov[0].iov_len=sizeof(buffer);
+// 		message.msg_name=&src_addr;
+// 		message.msg_namelen=sizeof(src_addr);
+// 		message.msg_iov=iov;
+// 		message.msg_iovlen=1;
+// 		message.msg_control=0;
+// 		message.msg_controllen=0;
+// 		ret = recvmsg(sock, &message, MSG_ERRQUEUE);
+// 	    if (ret < 0)
+// 	        continue;
+// 	    /* Control messages are always accessed via some macros
+// 	     * http://www.kernel.org/doc/man-pages/online/pages/man3/cmsg.3.html
+// 	     */
+// 	    for (cmsg = CMSG_FIRSTHDR(&message);cmsg; cmsg = CMSG_NXTHDR(&message, cmsg))
+// 	    {
+//             /* We received an error */
+//             if (cmsg->cmsg_type == IP_RECVERR)
+//             {
+//                 printf("We got IP_RECVERR message\n");
+//                 int *ttlptr = (int *) CMSG_DATA(cmsg);
+//                	int received_ttl = *ttlptr;
+//                	printf("ttl -> %d\n", received_ttl);
+//             }
+// 	    }
+// 	}
+// }
 
 void	ping(char *ip)
 {
@@ -93,20 +93,20 @@ void	ping(char *ip)
 	struct sockaddr_in sin = {0};
 	struct sockaddr_in sin2 = {0};
 	struct msghdr *message;
+	struct cmsghdr *cmsg;
 	char buffer[1024];
 	const int val=255;
 	struct packet pckt;
+	int ret;
 
-	sock = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+	sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	host = gethostbyname(ip);
-
 	if (sock == -1)
 		perror("socket");
-	if (host == NULL)
-		printf("host is null\n");
-	if (setsockopt(sock, IPPROTO_IP, IP_TTL, &val, sizeof(val)) != 0)
+	if (setsockopt(sock, SOL_IP, IP_TTL, &val, sizeof(val)) != 0)
 		perror("Set TTL option");
 	sin.sin_addr.s_addr =*((unsigned long *)host->h_addr_list[0]);
+	printf("pinging -> %s\n", host->h_name);
 	sin.sin_port = htons(8888);
 	sin.sin_family = AF_INET;
 
@@ -123,18 +123,44 @@ void	ping(char *ip)
  	else
  	{
  		printf("send success\n");
+ 		struct sockaddr_storage src_addr;
+		struct msghdr message;
+		struct iovec iov[1];
+		iov[0].iov_base=buffer;
+		iov[0].iov_len=sizeof(buffer);
+		message.msg_name=&src_addr;
+		message.msg_namelen=sizeof(src_addr);
+		message.msg_iov=iov;
+		message.msg_iovlen=1;
+		message.msg_control=0;
+		message.msg_controllen=0;
+ 		ret = recvmsg(sock, &message, MSG_ERRQUEUE);
+	    if (ret < 0)
+	        perror("recvmsg");
+	    /* Control messages are always accessed via some macros
+	     * http://www.kernel.org/doc/man-pages/online/pages/man3/cmsg.3.html
+	     */
+	    for (cmsg = CMSG_FIRSTHDR(&message);cmsg; cmsg = CMSG_NXTHDR(&message, cmsg))
+	    {
+            /* We received an error */
+            if (cmsg->cmsg_type == IP_RECVERR)
+            {
+                printf("We got IP_RECVERR message\n");
+                int *ttlptr = (int *) CMSG_DATA(cmsg);
+               	int received_ttl = *ttlptr;
+               	printf("ttl -> %d\n", received_ttl);
+            }
+	    }
+
  	}
 }
 
-int		main(int argc,char **argv)	
+int		main(int argc,char **argv)
 {
 
     if (argv[1])
 	{
-		if (fork() == 0)
-			listener();
-		else
-			ping(argv[1]);
+		ping(argv[1]);
 	}
     else
     	printf("usage: ping [ip]\n");
